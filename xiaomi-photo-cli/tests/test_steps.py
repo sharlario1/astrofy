@@ -106,3 +106,17 @@ def test_lut_baked_strength_is_not_double_applied():
     assert lut_blend_factor({**cfg, "lut_baked_strength": 100}, False) == 0.5
     assert lut_blend_factor(cfg, True) == 0.5                       # placeholder is 'full strength'
     assert lut_blend_factor({**cfg, "strength": 100}, False) == 1.0  # clipped without extrapolation
+
+
+def test_placeholder_desaturates_like_the_nat_reference():
+    """Direction check from the real NAT-100 reference pair: chroma drops ~20%, never rises."""
+    from photoflow.colorspace import rgb_to_lab_precise
+    from photoflow.lut import placeholder_lut
+    ph = placeholder_lut()
+    assert ph.is_placeholder
+    rng = np.random.default_rng(0)
+    x = rng.random((4000, 3))
+    x = x[(x.max(1) - x.min(1)) > 0.15]                                # clearly coloured samples
+    y = apply_lut(x.astype(np.float32), ph)
+    c = lambda v: np.hypot(*rgb_to_lab_precise(v)[:, 1:].T).mean()
+    assert 0.65 < c(y) / c(x) < 0.9

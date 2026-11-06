@@ -131,8 +131,8 @@ def process_array(rgb: np.ndarray, alpha, preset: dict, detector, parser, seed: 
             res.notes.append("placeholder_lut")
             if "placeholder_lut" not in _warned:
                 _warned.add("placeholder_lut")
-                log.warning("lut_nat: no LUT configured -> using the PLACEHOLDER approximation curve "
-                            "(not the Xiaomi NAT look). See README: make-hald / lut-from-hald.")
+                log.warning("lut_nat: no LUT configured -> using the PLACEHOLDER (rough single-image estimate of NAT 100, "
+                            "not the real filter). See README: make-hald / lut-from-hald.")
         res.rgb = blend_lut(res.rgb, lut, lut_blend_factor(ln, lut.is_placeholder))
         res.applied.append("lut_nat")
     tick("lut_nat")

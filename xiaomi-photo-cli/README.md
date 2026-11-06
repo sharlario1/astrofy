@@ -15,7 +15,7 @@ Python 3.11 CLI for native Windows 11 that post-processes hundreds of AI-generat
 | Skin texture (frequency separation + procedural pores) | Works. **Look is a first guess**; amplitudes are my defaults, you must tune on your faces |
 | Eyes (local contrast + sharpening, halo-free) | Works, same caveat |
 | Tone ("AI Beautify") | Works as a model. **Slider-to-physics constants are placeholders** until you run `calibrate` |
-| NAT LUT | **Placeholder curve** (logged, flagged in the manifest) until you supply a processed Hald. It is *not* the Xiaomi look |
+| NAT LUT | **Placeholder = single-image estimate of NAT 100** (logged, flagged in the manifest), fitted to one original/NAT-100 pair you supplied. Hold-out ΔE76 ≈ 2.8-3.1 vs 5.6-6.4 untouched, *within that one scene*. Replace with a real Hald |
 | `make-hald`, `lut-from-hald`, `calibrate` | Work; validated against a simulated phone with known ground truth (see "Calibration") |
 | `contact-sheet`, `qc` | Work. QC thresholds are heuristics, re-threshold from the CSV numbers |
 | Face-parsing ONNX | Code path works (tested with a tiny fake model). **No model URL shipped**, see decision 9 |
@@ -93,6 +93,13 @@ the simulated truth (fitted EV 0.064 vs true 0.09, gain 1.096 vs 1.08) even thou
 A weak prior toward the preset breaks ties. If you later change slider values, results extrapolate
 approximately. For separable constants, add pairs edited one slider at a time.
 
+### Reference pair findings (original vs NAT 100, 1280×943, both sRGB-tagged)
+
+- NAT 100 is **desaturating and cooler**, not a punchy filter: chroma ×0.76-0.83 in every region (foliage 0.76, skin 0.80-0.83, hair 0.77), b\* 16.0 → 12.3, blacks lifted (1st percentile L 1.4 → 3.4), lower mid-tones darker (25th percentile 36.8 → 32.8).
+- My first placeholder (S-curve, +4% saturation, warm) did the **opposite**: ΔE76 to the phone result was 9.88, *worse than doing nothing* (5.86). It was replaced by the fit above.
+- The chroma scale was stable across three independent spatial splits (0.78-0.79); the lightness curve is the least certain part.
+- One image can never give a full 3D LUT (the colour cube is mostly unobserved here). It also cannot tell you whether NAT is adaptive. Remaining error ≈ ΔE 2.8 is whatever a global model misses.
+
 ## Pipeline & preset
 
 `presets/heisenberg.yaml` holds your values; every step has `enabled` and `strength` 0-100
@@ -130,7 +137,7 @@ blended by strength; skin texture then runs on top. ComfyUI serializes jobs on o
 7. **Windows multiprocessing**: `spawn` always, MediaPipe created once per worker, OpenCV threads = 1 per worker, default workers = half the cores. MediaPipe Face Landmarker runs on CPU (XNNPACK); your GPU is only used by the optional ONNX parser and ComfyUI.
 8. **QC**: measured on a 1024 px copy. `blur` = Laplacian variance of the 256 px face crop; `excess_texture` = robust (MAD) noise sigma outside the face (hair + background, no hair segmentation) above a threshold, or far above skin noise; no face / multiple faces from the landmarker. All raw numbers are in the CSV. Heuristic: a legitimately textured background can flag.
 9. **Face-parsing ONNX**: optional (`face.parsing_onnx`). I could not verify any hosted model (huggingface.co was blocked from my build environment), so **I did not invent a URL**. Bring any BiSeNet-style model with the CelebAMask-HQ 19-class layout (512 input, ImageNet mean/std; skin = labels 1 and 10; my recollection of that layout is [likely], not verified against a real model). It is intersected with the landmark mask. Providers: CUDA → DirectML → CPU.
-10. **Placeholder LUT**: gentle S-curve, +4% saturation, faint warm shift. Warned in the console, in the log, and as `placeholder_lut` in the manifest notes. Treat output made with it as provisional (and re-run after the real LUT; the config hash changes so it re-processes automatically).
+10. **Placeholder LUT**: a 5-parameter global Lab model (lightness curve, chroma ×0.79 on a\* and b\*, tiny offsets) fitted to one reference pair, see "Reference pair findings". Warned in the console, in the log, and as `placeholder_lut` in the manifest notes. Treat output made with it as provisional; after you install the real LUT the config hash changes and everything re-processes automatically.
 
 ## Known weak spots (read before trusting 500 images)
 
@@ -142,7 +149,7 @@ blended by strength; skin texture then runs on top. ComfyUI serializes jobs on o
 ## Tests
 
 ```powershell
-pytest -q        # 31 pass, 1 skipped (real-face test needs .\samples and the model)
+pytest -q        # 32 pass, 1 skipped (real-face test needs .\samples and the model)
 ```
 
 Synthetic-image tests cover: exact crop sizes, non-empty and correctly-shaped masks (eyes/brows/lips excluded, cheeks covered,

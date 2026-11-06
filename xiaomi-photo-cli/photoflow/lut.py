@@ -149,18 +149,31 @@ def blend_lut(rgb: np.ndarray, lut: Lut3D, blend: float) -> np.ndarray:
 
 
 # ---------------------------------------------------------------- placeholder
+# Global Lab model fitted to ONE reference pair (original vs the phone's NAT filter at 100), 1280x943 photo.
+#   L' = L + curve(L) + kc*C/30 ;  a' = sa*a + da ;  b' = sb*b + db        (C = chroma)
+# Findings that were stable across spatial hold-out splits: chroma x0.79 on both axes (desaturating, cooler),
+# blacks lifted, lower mid-tones darker. Hold-out dE76 vs the phone result: 5.6-6.4 (untouched) -> 2.8-3.1.
+# It is still ONE scene (skin, hair, foliage): colours not in it (saturated reds/blues, night shots) are
+# extrapolated. Replace with make-hald -> phone -> lut-from-hald.
+_NAT100_KNOTS = np.array([0, 15, 30, 50, 70, 85, 100.0])
+_NAT100_LCURVE = np.array([2.33, -0.48, -3.71, -0.75, -1.16, -2.30, 0.56])
+_NAT100_SA, _NAT100_SB, _NAT100_DA, _NAT100_DB, _NAT100_KC = 0.788, 0.786, 0.39, -0.20, -0.77
+
+
+def nat100_estimate_lab(lab: np.ndarray) -> np.ndarray:
+    L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
+    C = np.hypot(a, b)
+    return np.stack([L + np.interp(L, _NAT100_KNOTS, _NAT100_LCURVE) + _NAT100_KC * C / 30.0,
+                     a * _NAT100_SA + _NAT100_DA, b * _NAT100_SB + _NAT100_DB], axis=-1)
+
+
 def placeholder_lut(size: int = 33) -> Lut3D:
-    """Approximation of a gentle 'natural' filter: mild S-curve, +4% saturation, faint warm shift.
-    NOT the Xiaomi NAT filter. Replace with make-hald -> phone -> lut-from-hald."""
+    """Rough single-image estimate of NAT at strength 100 (see block comment above). NOT the real filter."""
+    from .colorspace import lab_to_rgb, rgb_to_lab_precise
     t = identity_table(size)
-    x = t.copy()
-    k = 1.10                                                   # S-curve strength around 0.5
-    x = 0.5 + (x - 0.5) * k
-    x = np.where(x < 0.5, 0.5 * (2 * np.clip(x, 0, 0.5)) ** 1.06, 1 - 0.5 * (2 * (1 - np.clip(x, 0.5, 1))) ** 1.06)
-    luma = (0.2126 * x[..., 0] + 0.7152 * x[..., 1] + 0.0722 * x[..., 2])[..., None]
-    x = luma + (x - luma) * 1.04
-    x = x + np.array([0.006, 0.0, -0.006], np.float32)
-    return Lut3D(np.clip(x, 0, 1).astype(np.float32), title="placeholder-natural", is_placeholder=True)
+    lab = nat100_estimate_lab(rgb_to_lab_precise(t.reshape(-1, 3)))
+    out = lab_to_rgb(lab.astype(np.float32)).reshape(t.shape)
+    return Lut3D(np.clip(out, 0, 1).astype(np.float32), title="placeholder-nat100-single-image-estimate", is_placeholder=True)
 
 
 _CACHE: dict[tuple, Lut3D] = {}
