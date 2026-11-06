@@ -1,0 +1,7 @@
+file,width,height,n_faces,face_width_frac,sharp_face,bg_noise,skin_noise,bg_skin_ratio,flags
+synthetic_00.png,706,942,1,0.479,100.0,0.0,2.006,0.0,
+synthetic_01.png,706,942,1,0.479,100.0,0.0,2.006,0.0,
+synthetic_02.png,706,942,1,0.48,114.69,6.76,2.04,3.314,excess_texture
+synthetic_03.png,706,942,1,0.479,100.0,0.0,2.006,0.0,
+synthetic_04.png,706,942,1,0.479,100.0,0.0,2.006,0.0,
+synthetic_05.png,706,942,1,0.482,116.77,6.83,2.014,3.391,excess_texture

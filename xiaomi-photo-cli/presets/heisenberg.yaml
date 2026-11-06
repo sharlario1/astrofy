@@ -1,0 +1,79 @@
+# photoflow preset "heisenberg" - replicates the Xiaomi 14T Pro editor recipe.
+# Every step: enabled + strength 0-100 (100 = the step's nominal parameters).
+name: heisenberg
+
+output:
+  format: auto            # auto: png->png, everything else->jpeg
+  jpeg_quality: 95
+  jpeg_subsampling: 0     # 4:4:4
+  png_compress_level: 6
+
+face:
+  max_faces: 4
+  on_no_face: global_only # crop/tone/LUT/grain still run; use "skip" to produce no output
+  parsing_onnx: null      # optional user-supplied face-parsing ONNX (see README)
+
+steps:
+  crop:
+    enabled: true
+    strength: 100
+    per_side_pct: 4.0     # % of width off left+right and % of height off top+bottom
+
+  img2img:                # optional ComfyUI low-denoise pass; OFF by default
+    enabled: false
+
+  skin_texture:
+    enabled: true
+    strength: 100
+
+  eyes:
+    enabled: true
+    strength: 100
+
+  tone:                   # "AI Beautify": exposure +3, brightness +15, contrast +15, scaled by intensity 66
+    enabled: true
+    strength: 66
+    ui_points:
+      exposure: 3
+      brightness: 15
+      contrast: 15
+    mapping:              # slider point -> physics. GUESSES until you run `photoflow calibrate`
+      exposure_ev_per_pt: 0.02
+      brightness_per_pt: 0.0025
+      contrast_per_pt: 0.004
+      pivot: 0.5
+
+  lut_nat:
+    enabled: true
+    strength: 50          # effective blend with the original, percent
+    lut_path: null        # null -> PLACEHOLDER curve (logged). Set by `lut-from-hald --preset heisenberg`
+    lut_baked_strength: 100   # NAT strength already baked into the Hald on the phone (100 or 50)
+    allow_extrapolation: false
+
+  grain:
+    enabled: false
+    strength: 20
+
+jitter:                   # small deterministic per-photo variation (seeded by file hash)
+  enabled: false
+  seed: 0
+  relative:
+    skin_texture: 0.10
+    eyes: 0.10
+    tone: 0.05
+    lut_nat: 0.08
+    grain: 0.25
+  tone_points: 1.0
+
+qc:
+  blur_min: 25.0
+  bg_noise_max: 2.0
+  bg_skin_ratio_max: 1.6
+  bg_noise_floor: 1.0
+  max_faces_ok: 1
+
+calibration:              # filled by `photoflow calibrate`
+  date: null
+  n_pairs: null
+  de76_mean_before: null
+  de76_mean_after: null

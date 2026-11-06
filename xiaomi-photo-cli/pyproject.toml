@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photoflow"
+version = "0.1.0"
+description = "Batch replica of a Xiaomi 14T Pro photo-editor workflow (skin texture, eyes, AI-Beautify tone, NAT LUT) for AI portraits"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10.1",
+  "mediapipe>=0.10.14",
+  "opencv-contrib-python>=4.9",   # mediapipe depends on this exact flavour; do NOT also install opencv-python
+  "typer>=0.12",
+  "pyyaml>=6.0",
+  "scipy>=1.11",                  # calibration (least_squares) only
+  "onnxruntime>=1.17",            # optional face parsing; swap for onnxruntime-directml / onnxruntime-gpu
+]
+
+[project.optional-dependencies]
+dml  = ["onnxruntime-directml"]   # uninstall plain onnxruntime first
+cuda = ["onnxruntime-gpu"]        # uninstall plain onnxruntime first
+dev  = ["pytest>=8", "onnx>=1.15"]   # onnx only builds a tiny fake model for the parsing test
+
+[project.scripts]
+photoflow = "photoflow.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["photoflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["real_face: needs a real portrait in ./samples and the MediaPipe model"]
